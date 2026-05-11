@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ball Catcher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a1a;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #canvas {
+      display: block;
+      position: absolute;
+      /* Actual dimensions are set in JS (1920×1080 logical) */
+      image-rendering: pixelated;
+    }
+
+    /* HUD — shown only when not in fullscreen projection mode */
+    #hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      gap: 10px;
+      padding: 8px 12px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .hud-pill {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font: 11px/1.5 monospace;
+      color: #fff;
+      background: rgba(0,0,0,0.55);
+      white-space: nowrap;
+    }
+
+    #status   { background: #444; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="hud">
+    <span class="hud-pill" id="status">Connecting…</span>
+    <span class="hud-pill" id="ball-count">Balls: 0</span>
+  </div>
+
+  <script src="js/matter.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

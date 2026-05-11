@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Calibration — Ball Catcher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width:  1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #ffffff;
+      position: relative;
+    }
+
+    /* Four corner markers */
+    .marker {
+      position: absolute;
+      width:  44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #00e676;
+      border: 3px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font: bold 16px sans-serif;
+      color: #000;
+    }
+
+    /* Exactly at screen corners (offset by half size so center is at corner) */
+    #m1 { top:  0;    left:  0;    }   /* TL */
+    #m2 { top:  0;    right: 0;    }   /* TR */
+    #m3 { bottom: 0;  right: 0;    }   /* BR */
+    #m4 { bottom: 0;  left:  0;    }   /* BL */
+
+    /* Cross-hair lines */
+    .cross-h, .cross-v {
+      position: absolute;
+      background: rgba(0,230,118,0.3);
+    }
+    .cross-h { top: 22px;  left: 0; right: 0; height: 1px; }
+    .cross-v { left: 22px; top: 0; bottom: 0; width: 1px; }
+
+    #center-info {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      font-family: monospace;
+      color: #aaa;
+    }
+    #center-info h1 { font-size: 28px; margin-bottom: 12px; }
+    #center-info p  { font-size: 16px; line-height: 1.6; }
+
+    .label-box {
+      position: absolute;
+      font: 12px monospace;
+      color: #333;
+      background: rgba(255,255,255,0.8);
+      padding: 2px 5px;
+    }
+    #lbl1 { top:  50px; left:  5px;  }
+    #lbl2 { top:  50px; right: 5px;  }
+    #lbl3 { bottom: 50px; right: 5px; }
+    #lbl4 { bottom: 50px; left:  5px; }
+  </style>
+</head>
+<body>
+  <!-- Corner markers (click these in calibrate.py) -->
+  <div class="marker" id="m1">1</div>
+  <div class="marker" id="m2">2</div>
+  <div class="marker" id="m3">3</div>
+  <div class="marker" id="m4">4</div>
+
+  <!-- Labels -->
+  <span class="label-box" id="lbl1">TL (1)</span>
+  <span class="label-box" id="lbl2">TR (2)</span>
+  <span class="label-box" id="lbl3">BR (3)</span>
+  <span class="label-box" id="lbl4">BL (4)</span>
+
+  <div id="center-info">
+    <h1>CALIBRATION MODE</h1>
+    <p>Open <strong>calibrate.py</strong> and click the 4 green circles<br>
+       in order: <strong>TL → TR → BR → BL</strong></p>
+    <p style="margin-top:16px; color:#bbb; font-size:13px">
+      1920 × 1080 &nbsp;|&nbsp; Ball Catcher
+    </p>
+  </div>
+</body>
+</html>

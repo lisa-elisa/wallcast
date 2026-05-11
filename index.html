@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wallplay — Choose Mode</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0e0e10;
+      color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    p.subtitle {
+      color: #888;
+      font-size: 15px;
+      margin-bottom: 40px;
+    }
+    .modes {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 880px;
+    }
+    .mode {
+      width: 360px;
+      background: #1a1a1d;
+      border: 1px solid #2a2a2e;
+      border-radius: 14px;
+      padding: 28px;
+      transition: transform 0.15s, border-color 0.15s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .mode:hover {
+      transform: translateY(-3px);
+      border-color: #4a90e2;
+    }
+    .mode h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    .mode .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #2a2a2e;
+      color: #aaa;
+      margin-bottom: 12px;
+      font-family: monospace;
+    }
+    .mode p {
+      color: #999;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .mode .status {
+      margin-top: 16px;
+      font-size: 13px;
+      font-family: monospace;
+      color: #666;
+    }
+    .mode .status.ok    { color: #4caf50; }
+    .mode .status.fail  { color: #f44336; }
+    footer {
+      margin-top: 48px;
+      color: #555;
+      font-size: 13px;
+      text-align: center;
+    }
+    footer code {
+      background: #1a1a1d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wallplay</h1>
+  <p class="subtitle">Choose an AR projection mode</p>
+
+  <div class="modes">
+    <a class="mode" href="/falling_balls/index.html" id="mode-balls">
+      <div class="tag">OpenCV · Matter.js</div>
+      <h2>Falling Balls</h2>
+      <p>Yellow balls fall under gravity and bounce off red paper sheets detected on the wall. If the papers form a bowl, balls collect inside.</p>
+      <div class="status" id="status-balls">checking backend…</div>
+    </a>
+
+    <a class="mode" href="/spells/index.html" id="mode-sparks">
+      <div class="tag">MediaPipe · Canvas</div>
+      <h2>Spells</h2>
+      <p>Camera tracks your hand. Open palm releases beams of light; orient your palm toward the camera for a burst of glowing particles.</p>
+      <div class="status" id="status-sparks">checking backend…</div>
+    </a>
+  </div>
+
+  <footer>
+    Phone camera page: <code>/shared/phone_camera.html</code> &nbsp;·&nbsp;
+    See each mode's <code>README.md</code> for setup
+  </footer>
+
+  <script>
+    // Probe the WebSocket port that each backend uses (8765).
+    // Both modes use the same port, but only one backend can run at a time.
+    function probe(statusId, modeLabel, runCmd) {
+      const el = document.getElementById(statusId);
+      const ws = new WebSocket("ws://localhost:8765");
+      const timeout = setTimeout(() => {
+        try { ws.close(); } catch (e) {}
+        el.textContent = "backend not running — start: " + runCmd;
+        el.classList.add("fail");
+      }, 1500);
+      ws.onopen = () => {
+        clearTimeout(timeout);
+        el.textContent = "backend running ✓";
+        el.classList.add("ok");
+        ws.close();
+      };
+      ws.onerror = () => {
+        clearTimeout(timeout);
+        el.textContent = "backend not running — start: " + runCmd;
+        el.classList.add("fail");
+      };
+    }
+    probe("status-balls",  "Falling Balls", "python falling_balls/server.py");
+    probe("status-sparks", "Spells",   "python spells/server.py");
+  </script>
+</body>
+</html>

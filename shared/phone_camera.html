@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Phone Camera — Wallplay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      color: #eee;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+      gap: 12px;
+    }
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+      padding: 10px 20px;
+      border-radius: 8px;
+      background: #222;
+    }
+    #stats  { font-size: 13px; color: #888; }
+    #wsurl  { font-size: 11px; color: #555; word-break: break-all; }
+    #preview {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 8px;
+      border: 2px solid #333;
+    }
+    .green  { color: #4caf50; }
+    .yellow { color: #ffc107; }
+    .red    { color: #f44336; }
+    button {
+      padding: 10px 24px;
+      border-radius: 6px;
+      border: none;
+      background: #1976d2;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="status" class="yellow">Запуск камеры...</div>
+  <div id="stats">fps: — | frame: —</div>
+  <div id="wsurl">WS: —</div>
+  <video id="preview" autoplay playsinline muted></video>
+  <button onclick="togglePause()">Пауза</button>
+
+  <canvas id="canvas" style="display:none"></canvas>
+
+  <script>
+    // WebSocket port for phone camera input (server listens on this)
+    const CAM_WS_PORT = 8766;
+    const WS_URL = `ws://${location.hostname}:${CAM_WS_PORT}`;
+
+    const TARGET_FPS  = 20;
+    const JPEG_Q      = 0.55;
+    const MAX_WIDTH   = 1280;
+    const MAX_HEIGHT  = 720;
+
+    const statusEl  = document.getElementById("status");
+    const statsEl   = document.getElementById("stats");
+    const wsurlEl   = document.getElementById("wsurl");
+    const preview   = document.getElementById("preview");
+    const canvas    = document.getElementById("canvas");
+    const ctx       = canvas.getContext("2d");
+
+    let ws        = null;
+    let paused    = false;
+    let framesSent = 0;
+    let lastTime  = performance.now();
+    let sendTimer = null;
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className   = cls || "";
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width:  { ideal: MAX_WIDTH  },
+            height: { ideal: MAX_HEIGHT },
+            aspectRatio: { ideal: 16 / 9 },
+            frameRate: { ideal: TARGET_FPS },
+          },
+          audio: false,
+        });
+        preview.srcObject = stream;
+
+        await new Promise((resolve, reject) => {
+          preview.onloadedmetadata = resolve;
+          preview.onerror = reject;
+          if (preview.readyState >= 1) resolve();
+        });
+        await preview.play();
+
+        const tw = preview.videoWidth  || MAX_WIDTH;
+        const th = preview.videoHeight || MAX_HEIGHT;
+        canvas.width  = tw;
+        canvas.height = th;
+
+        setStatus("Камера OK — подключение...", "yellow");
+        connect();
+      } catch (e) {
+        setStatus("Ошибка камеры: " + e.message, "red");
+      }
+    }
+
+    function connect() {
+      wsurlEl.textContent = "WS: " + WS_URL;
+      ws = new WebSocket(WS_URL);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => {
+        setStatus("Подключено — стриминг", "green");
+        scheduleFrame();
+      };
+      ws.onclose = () => {
+        setStatus("Отключено — реконнект...", "yellow");
+        clearTimeout(sendTimer);
+        setTimeout(connect, 2000);
+      };
+      ws.onerror = () => setStatus("WS ошибка", "red");
+    }
+
+    function scheduleFrame() {
+      const delay = 1000 / TARGET_FPS;
+      sendTimer = setTimeout(sendFrame, delay);
+    }
+
+    function sendFrame() {
+      if (!paused && ws && ws.readyState === WebSocket.OPEN && preview.readyState >= 2) {
+        ctx.drawImage(preview, 0, 0);
+        canvas.toBlob(blob => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            blob.arrayBuffer().then(buf => ws.send(buf));
+          }
+          updateStats();
+          scheduleFrame();
+        }, "image/jpeg", JPEG_Q);
+      } else {
+        scheduleFrame();
+      }
+    }
+
+    function updateStats() {
+      framesSent++;
+      const now   = performance.now();
+      const elapsed = (now - lastTime) / 1000;
+      if (elapsed >= 2) {
+        const fps = (framesSent / elapsed).toFixed(1);
+        statsEl.textContent = `fps: ${fps} | ${canvas.width}x${canvas.height} | q=${JPEG_Q}`;
+        framesSent = 0;
+        lastTime   = now;
+      }
+    }
+
+    function togglePause() {
+      paused = !paused;
+      document.querySelector("button").textContent = paused ? "Возобновить" : "Пауза";
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
