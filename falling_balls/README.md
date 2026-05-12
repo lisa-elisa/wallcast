@@ -64,14 +64,15 @@ balls. Add a "wall" on top to keep them in.
 
 Ball physics — in `js/app.js`:
 
-| Constant            | Default | Meaning                              |
-|---------------------|---------|--------------------------------------|
-| `SPAWN_INTERVAL`    | 500 ms  | Time between spawns                  |
-| `SPAWN_X`           | 1280 px | X coordinate of spawn point          |
-| `BALL_RADIUS`       | 20 px   | Visual radius                        |
-| `BALL_RESTITUTION`  | 0.62    | Bounciness (0 dead, 1 perfect)       |
-| `BALL_DENSITY`      | 0.0005  | Matter.js density (light plastic)    |
-| `BALL_FRICTION_AIR` | 0.008   | Air drag                             |
+| Constant            | Default | Meaning                                       |
+|---------------------|---------|-----------------------------------------------|
+| `MAX_BALLS`         | 20      | Hard cap on concurrent balls (offscreen ones recycle) |
+| `SPAWN_INTERVAL`    | 500 ms  | Time between spawns                           |
+| `SPAWN_X`           | 1280 px | X coordinate of spawn point                   |
+| `BALL_RADIUS`       | 20 px   | Visual radius                                 |
+| `BALL_RESTITUTION`  | 0.62    | Bounciness (0 dead, 1 perfect)                |
+| `BALL_DENSITY`      | 0.0005  | Matter.js density (light plastic)             |
+| `BALL_FRICTION_AIR` | 0.008   | Air drag                                      |
 
 Paper detection — in `detector.py`. Red wraps around 180° in HSV, so two bands are
 needed (low + high):

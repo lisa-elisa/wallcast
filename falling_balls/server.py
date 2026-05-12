@@ -50,12 +50,14 @@ def get_local_ip() -> str:
     except Exception:
         return "localhost"
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, OSError):
+    pass  # stdout не текстовый (CREATE_NO_WINDOW), или уже сконфигурирован
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-7s %(message)s",
-    handlers=[logging.StreamHandler(
-        stream=open(sys.stdout.fileno(), mode="w", encoding="utf-8", closefd=False)
-    )],
 )
 log = logging.getLogger(__name__)
 
@@ -82,6 +84,8 @@ _sh = {
 }
 _sh_lock    = threading.Lock()
 _cam_ready  = threading.Event()
+_shutdown   = threading.Event()
+_threads: list[threading.Thread] = []
 
 # ── Calibration ───────────────────────────────────────────────────────────────
 
@@ -140,23 +144,27 @@ def camera_thread(camera_idx: int, fallback_M: np.ndarray,
         _cam_ready.set()
         return
 
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
-    log.info("Camera %d opened: %dx%d",
-             camera_idx,
-             int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-             int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    try:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
+        log.info("Camera %d opened: %dx%d",
+                 camera_idx,
+                 int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                 int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
-    detector     = Detector()
-    last_corners = [None]   # mutable ref
+        detector     = Detector()
+        last_corners = [None]   # mutable ref
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-        _process_frame(frame, detector, fallback_M,
-                       debug_q if debug else None, last_corners)
+        while not _shutdown.is_set():
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            _process_frame(frame, detector, fallback_M,
+                           debug_q if debug else None, last_corners)
+    finally:
+        cap.release()
+        log.info("Camera released")
 
 # ── Debug window thread — drag-to-adjust corners ──────────────────────────────
 
@@ -212,7 +220,7 @@ def debug_window_thread(q: queue.Queue):
     cv2.setMouseCallback(WIN, on_mouse)
 
     # ── Main display loop ─────────────────────────────────────────────────────
-    while True:
+    while not _shutdown.is_set():
         # Get latest frame + detected corners from camera thread
         try:
             frame, auto_corners = q.get(timeout=1.0)
@@ -366,7 +374,7 @@ async def phone_camera_handler(websocket, fallback_M: np.ndarray,
             if frame is None:
                 continue
             # Run CPU-heavy work in executor to not block the event loop
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 None, _process_frame, frame, detector, fallback_M, debug_q, last_corners
             )
@@ -384,7 +392,7 @@ async def ws_handler(websocket, fallback_M: np.ndarray):
     detector = Detector()
     interval = 1.0 / TARGET_FPS
 
-    await asyncio.get_event_loop().run_in_executor(None, _cam_ready.wait, 10.0)
+    await asyncio.get_running_loop().run_in_executor(None, _cam_ready.wait, 10.0)
 
     try:
         while True:
@@ -418,23 +426,28 @@ async def ws_handler(websocket, fallback_M: np.ndarray):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def main(camera_idx: int, port: int, debug: bool, phone: bool):
+async def main(camera_idx: int, port: int, debug: bool, phone: bool,
+               localhost_only: bool = False):
     local_ip   = get_local_ip()
     fallback_M = load_homography()
 
     debug_q = None
     if debug:
         debug_q = queue.Queue(maxsize=2)
-        threading.Thread(
+        t = threading.Thread(
             target=debug_window_thread, args=(debug_q,), daemon=True
-        ).start()
+        )
+        t.start()
+        _threads.append(t)
 
     if not phone:
-        threading.Thread(
+        t = threading.Thread(
             target=camera_thread,
             args=(camera_idx, fallback_M, debug, debug_q),
             daemon=True,
-        ).start()
+        )
+        t.start()
+        _threads.append(t)
 
     async def obs_handler(ws):
         await ws_handler(ws, fallback_M)
@@ -442,10 +455,25 @@ async def main(camera_idx: int, port: int, debug: bool, phone: bool):
     async def cam_handler(ws):
         await phone_camera_handler(ws, fallback_M, debug_q)
 
-    # Obstacle stream → browser (localhost only)
-    obs_server = await websockets.serve(obs_handler, "localhost", port)
-    # Phone camera input → accept from any device on LAN
-    cam_server = await websockets.serve(cam_handler, "0.0.0.0", PHONE_CAM_PORT)
+    # Obstacle stream → browser (always localhost — small JSON payloads)
+    obs_server = await websockets.serve(
+        obs_handler, "localhost", port,
+        max_size=10_000,  # small JSON payloads
+    )
+
+    # Phone camera input — bind depends on --localhost-only flag
+    bind_host = "localhost" if localhost_only else "0.0.0.0"
+    if not localhost_only:
+        log.warning("=" * 60)
+        log.warning("WS bound on 0.0.0.0 - any host on LAN can stream frames.")
+        log.warning("Pass --localhost-only to restrict.")
+        log.warning("=" * 60)
+    log.info("Phone cam WS bind: %s:%d", bind_host, PHONE_CAM_PORT)
+
+    cam_server = await websockets.serve(
+        cam_handler, bind_host, PHONE_CAM_PORT,
+        max_size=2_000_000,  # 2 MB hard cap on JPEG frames
+    )
 
     log.info("Obstacle WS  : ws://localhost:%d", port)
     log.info("Phone cam WS : ws://%s:%d", local_ip, PHONE_CAM_PORT)
@@ -466,8 +494,14 @@ if __name__ == "__main__":
     p.add_argument("--debug",  action="store_true",       help="Show debug window")
     p.add_argument("--phone",  action="store_true",
                    help="Use phone camera only (disables local camera)")
+    p.add_argument("--localhost-only", action="store_true",
+                   help="Bind every WebSocket on 127.0.0.1 (disables phone camera)")
     args = p.parse_args()
     try:
-        asyncio.run(main(args.camera, args.port, args.debug, args.phone))
+        asyncio.run(main(args.camera, args.port, args.debug, args.phone,
+                         args.localhost_only))
     except KeyboardInterrupt:
+        _shutdown.set()
+        for t in _threads:
+            t.join(timeout=2.0)
         log.info("Stopped.")

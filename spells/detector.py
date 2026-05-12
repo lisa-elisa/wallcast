@@ -3,7 +3,10 @@ Hand detector using MediaPipe Hands Tasks API (mediapipe >= 0.10.14).
 Model file hand_landmarker.task (~8 MB) is downloaded automatically on first run.
 """
 
+import logging
 import math
+import os
+import shutil
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -12,18 +15,40 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+log = logging.getLogger(__name__)
+
 _MODEL_PATH = Path(__file__).parent / "hand_landmarker.task"
 _MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/"
     "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 )
+_MODEL_DOWNLOAD_TIMEOUT = 30  # seconds — fail fast on stalled corporate proxies
 
 
 def _ensure_model() -> None:
-    if not _MODEL_PATH.exists():
-        print(f"[detector] Downloading hand_landmarker.task (~8 MB) …", flush=True)
-        urllib.request.urlretrieve(_MODEL_URL, _MODEL_PATH)
-        print(f"[detector] Saved → {_MODEL_PATH}", flush=True)
+    """Download hand_landmarker.task on first run.
+
+    Atomic: stream to a temp file in the same directory, then os.replace.
+    Partial download will not leave a corrupt model on disk.
+    """
+    if _MODEL_PATH.exists():
+        return
+
+    log.info("Downloading hand_landmarker.task (~8 MB) ...")
+    tmp_path = _MODEL_PATH.with_suffix(_MODEL_PATH.suffix + ".part")
+    try:
+        with urllib.request.urlopen(_MODEL_URL, timeout=_MODEL_DOWNLOAD_TIMEOUT) as resp, \
+             open(tmp_path, "wb") as out:
+            shutil.copyfileobj(resp, out)
+        os.replace(tmp_path, _MODEL_PATH)
+        log.info("Saved -> %s", _MODEL_PATH)
+    except Exception:
+        # Clean up partial file so next run retries cleanly
+        try:
+            tmp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def detect_screen_corners(frame: np.ndarray) -> np.ndarray | None:
