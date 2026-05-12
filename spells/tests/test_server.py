@@ -1,24 +1,8 @@
 """Tests for spells/server.py coordinate transforms + calibration loader."""
 import json
-import sys
-from pathlib import Path
 
 import cv2
 import numpy as np
-import pytest
-
-
-# server.py has module-level logging setup that opens sys.stdout.fileno() —
-# we patch it before import so the module loads cleanly under pytest's capture.
-@pytest.fixture(scope="module", autouse=True)
-def _import_server():
-    import logging
-    real_basicConfig = logging.basicConfig
-    logging.basicConfig = lambda *a, **kw: None
-    try:
-        import server  # noqa: F401  — imported for side effects
-    finally:
-        logging.basicConfig = real_basicConfig
 
 
 def test_xform_pt_identity_matrix():

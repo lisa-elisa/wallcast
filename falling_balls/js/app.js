@@ -18,6 +18,7 @@ const BALL_RADIUS     = 20;       // px — visual radius
 const SPAWN_INTERVAL  = 500;      // ms between spawns
 const SPAWN_X         = 1280;     // border between middle and right thirds
 const SPAWN_Y         = -BALL_RADIUS - 5;
+const MAX_BALLS       = 20;       // hard cap on concurrent balls (older ones recycle)
 
 // 10g hollow plastic: light, moderately bouncy
 const BALL_DENSITY        = 0.0005;
@@ -101,6 +102,9 @@ class BallCatcher {
   // ── Ball spawning ───────────────────────────────────────────────────────────
 
   _spawnBall() {
+    if (document.hidden) return;          // tab in background — skip spawn
+    if (this.balls.length >= MAX_BALLS) return;  // cap reached — wait for offscreen recycle
+
     const x = SPAWN_X + (Math.random() - 0.5) * BALL_SPAWN_SPREAD;
     const ball = Bodies.circle(x, SPAWN_Y, BALL_RADIUS, {
       label:       "ball",
