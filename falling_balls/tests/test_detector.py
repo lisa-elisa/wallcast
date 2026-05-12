@@ -2,20 +2,28 @@
 Offline detector tests — no camera required.
 Generates synthetic frames and verifies detection.
 """
+
 import numpy as np
 import pytest
+from detector import MIN_PAPER_AREA, Ball, Detector, Obstacle
 
-from detector import Ball, Detector, MIN_PAPER_AREA, Obstacle
-
-RED  = (0, 0, 220)
+RED = (0, 0, 220)
 BLUE = (200, 0, 0)
 
 
 # ── Dataclass serialization ───────────────────────────────────────────────────
 
+
 def test_obstacle_to_dict_fields_and_rounding():
-    o = Obstacle(id="paper_0", cx=100.456, cy=200.789, w=50.111, h=25.999,
-                 angle=15.444, vertices=[[1.234, 2.345], [3.456, 4.567]])
+    o = Obstacle(
+        id="paper_0",
+        cx=100.456,
+        cy=200.789,
+        w=50.111,
+        h=25.999,
+        angle=15.444,
+        vertices=[[1.234, 2.345], [3.456, 4.567]],
+    )
     d = o.to_dict()
 
     assert d["id"] == "paper_0"
@@ -35,14 +43,18 @@ def test_ball_to_dict_rounds_to_int():
 
 # ── Corner sorting ────────────────────────────────────────────────────────────
 
+
 def test_sort_corners_returns_tl_tr_br_bl():
     # Random order of a 100×100 square's corners
-    pts = np.array([
-        [100, 100],   # BR
-        [0,   0  ],   # TL
-        [100, 0  ],   # TR
-        [0,   100],   # BL
-    ], dtype=np.float32)
+    pts = np.array(
+        [
+            [100, 100],  # BR
+            [0, 0],  # TL
+            [100, 0],  # TR
+            [0, 100],  # BL
+        ],
+        dtype=np.float32,
+    )
     sorted_pts = Detector._sort_corners(pts)
     assert sorted_pts.tolist() == [[0, 0], [100, 0], [100, 100], [0, 100]]
 
@@ -61,8 +73,10 @@ def test_sort_corners_handles_tilted_quad():
 
 # ── HSV mask sanity ───────────────────────────────────────────────────────────
 
+
 def test_build_hsv_mask_removes_small_noise(detector):
     import cv2
+
     # Frame with one large red square and one tiny red speck
     frame = np.ones((720, 1280, 3), dtype=np.uint8) * 240
     cv2.rectangle(frame, (200, 200), (600, 500), RED, -1)
@@ -71,8 +85,8 @@ def test_build_hsv_mask_removes_small_noise(detector):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = detector._build_hsv_mask(
         hsv,
-        np.array([0,   100, 100], dtype=np.uint8),
-        np.array([10,  255, 255], dtype=np.uint8),
+        np.array([0, 100, 100], dtype=np.uint8),
+        np.array([10, 255, 255], dtype=np.uint8),
         np.array([160, 100, 100], dtype=np.uint8),
         np.array([180, 255, 255], dtype=np.uint8),
     )
@@ -83,6 +97,7 @@ def test_build_hsv_mask_removes_small_noise(detector):
 
 
 # ── End-to-end paper detection ────────────────────────────────────────────────
+
 
 def test_single_horizontal_paper(detector, red_horizontal_paper):
     obs = detector.detect_red_papers(red_horizontal_paper)
@@ -104,7 +119,7 @@ def test_two_separate_papers(detector, make_frame):
 
 def test_v_shaped_merged_papers_split(detector, make_frame):
     # Two skewed rectangles sharing a bottom corner — concave merged contour
-    pts1 = [[80,  80], [180, 80], [220, 300], [120, 300]]
+    pts1 = [[80, 80], [180, 80], [220, 300], [120, 300]]
     pts2 = [[220, 80], [320, 80], [260, 300], [160, 300]]
     frame = make_frame((pts1, RED), (pts2, RED))
     obs = detector.detect_red_papers(frame)

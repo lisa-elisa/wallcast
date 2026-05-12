@@ -1,0 +1,82 @@
+name: Bug report
+description: Something in Wallplay does not work the way it should.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. A short GIF or screenshot of the failure
+        usually saves a lot of back-and-forth — please attach one if you can.
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      description: Which Wallplay mode is affected?
+      options:
+        - Falling Balls
+        - Spells
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: "3.12.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the actual vs. expected behaviour. Include exact steps to reproduce.
+      placeholder: |
+        1. Ran `python falling_balls/server.py`
+        2. Opened http://localhost:8000
+        3. Expected ... but got ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Reproduction GIF or screenshot
+      description: |
+        Strongly encouraged — a 5–10 second GIF of the problem is the fastest
+        path to a fix. You can drag-and-drop an image/GIF/video file directly
+        onto this textarea and GitHub will upload it for you.
+      placeholder: "Drag and drop a GIF, PNG, or short MP4 here."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: server.py logs
+      description: Paste the terminal output from server.py around the time of the bug (optional).
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: "I have run `pytest falling_balls/tests` (and/or `pytest spells/tests`) locally and the suite passes on my machine."
+          required: true

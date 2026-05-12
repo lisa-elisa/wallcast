@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest a new capability or improvement for Wallplay.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest an improvement. The clearer the
+        use case, the easier it is to scope and prioritise.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What you want to build
+      description: A clear, focused description of the feature or change.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which mode does this relate to?
+      options:
+        - Falling Balls
+        - Spells
+        - Both
+        - Shared (HTTP host, phone camera, calibration, infra)
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this matters
+      description: What is the use case? Who benefits? What does it unlock?
+    validations:
+      required: true
+
+  - type: textarea
+    id: how
+    attributes:
+      label: Implementation idea
+      description: Optional — sketch of how this might be built, files touched, libraries involved, etc.
+    validations:
+      required: false

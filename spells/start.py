@@ -11,10 +11,12 @@ from pathlib import Path
 HERE = Path(__file__).parent
 REPO_ROOT = HERE.parent
 SERVE_PY = REPO_ROOT / "shared" / "serve.py"
-ADB  = Path(os.environ.get("LOCALAPPDATA","")) / "Android/Sdk/platform-tools/adb.exe"
+ADB = Path(os.environ.get("LOCALAPPDATA", "")) / "Android/Sdk/platform-tools/adb.exe"
+
 
 def kill_ports():
     import socket
+
     for port in (8765, 8766, 8000):
         try:
             s = socket.socket()
@@ -22,27 +24,30 @@ def kill_ports():
             if s.connect_ex(("127.0.0.1", port)) == 0:
                 # port busy — find and kill via netstat+taskkill
                 result = subprocess.run(
-                    f'netstat -ano | findstr ":{port} "',
-                    shell=True, capture_output=True, text=True
+                    f'netstat -ano | findstr ":{port} "', shell=True, capture_output=True, text=True
                 )
                 for line in result.stdout.splitlines():
                     parts = line.split()
                     if parts and parts[-1].isdigit():
-                        subprocess.run(f"taskkill /PID {parts[-1]} /F",
-                                       shell=True, capture_output=True)
+                        subprocess.run(
+                            f"taskkill /PID {parts[-1]} /F", shell=True, capture_output=True
+                        )
             s.close()
         except Exception:
             pass
+
 
 def setup_adb():
     if not ADB.exists():
         print("[ADB] adb.exe not found — skipping")
         return
     try:
-        r1 = subprocess.run([str(ADB), "reverse", "tcp:8000", "tcp:8000"],
-                            capture_output=True, text=True)
-        r2 = subprocess.run([str(ADB), "reverse", "tcp:8766", "tcp:8766"],
-                            capture_output=True, text=True)
+        r1 = subprocess.run(
+            [str(ADB), "reverse", "tcp:8000", "tcp:8000"], capture_output=True, text=True
+        )
+        r2 = subprocess.run(
+            [str(ADB), "reverse", "tcp:8766", "tcp:8766"], capture_output=True, text=True
+        )
         if "error" in (r1.stderr + r2.stderr).lower():
             print("[ADB] Phone not detected — USB not connected?")
         else:
@@ -50,10 +55,16 @@ def setup_adb():
     except Exception as e:
         print(f"[ADB] Error: {e}")
 
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--rotate", type=int, default=0, choices=[0,90,180,270],
-                   help="Rotate phone camera frame (0/90/180/270)")
+    p.add_argument(
+        "--rotate",
+        type=int,
+        default=0,
+        choices=[0, 90, 180, 270],
+        help="Rotate phone camera frame (0/90/180/270)",
+    )
     args = p.parse_args()
 
     os.chdir(HERE)
@@ -85,8 +96,10 @@ def main():
                 proc.terminate()
                 proc.wait(timeout=3)
             except Exception:
-                try: proc.kill()
-                except Exception: pass
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
 
     atexit.register(cleanup)
 
@@ -109,12 +122,14 @@ def main():
                 pass
 
     import threading
+
     threading.Thread(target=adb_watchdog, daemon=True).start()
 
     try:
         p_server.wait()
     except KeyboardInterrupt:
         pass
+
 
 if __name__ == "__main__":
     main()

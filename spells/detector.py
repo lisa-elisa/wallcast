@@ -37,8 +37,10 @@ def _ensure_model() -> None:
     log.info("Downloading hand_landmarker.task (~8 MB) ...")
     tmp_path = _MODEL_PATH.with_suffix(_MODEL_PATH.suffix + ".part")
     try:
-        with urllib.request.urlopen(_MODEL_URL, timeout=_MODEL_DOWNLOAD_TIMEOUT) as resp, \
-             open(tmp_path, "wb") as out:
+        with (
+            urllib.request.urlopen(_MODEL_URL, timeout=_MODEL_DOWNLOAD_TIMEOUT) as resp,
+            open(tmp_path, "wb") as out,
+        ):
             shutil.copyfileobj(resp, out)
         os.replace(tmp_path, _MODEL_PATH)
         log.info("Saved -> %s", _MODEL_PATH)
@@ -72,23 +74,23 @@ def detect_screen_corners(frame: np.ndarray) -> np.ndarray | None:
     pts = corners.reshape(4, 2)
     # Sort by y (primary), so pts[:2] = top pair, pts[2:] = bottom pair.
     pts = pts[np.lexsort((pts[:, 0], pts[:, 1]))]
-    top_pair = pts[:2][np.argsort(pts[:2, 0])]   # left→right within top row
-    bot_pair = pts[2:][np.argsort(pts[2:, 0])]   # left→right within bottom row
-    tl, tr = top_pair          # top-left, top-right
-    bl, br = bot_pair          # bottom-left, bottom-right
+    top_pair = pts[:2][np.argsort(pts[:2, 0])]  # left→right within top row
+    bot_pair = pts[2:][np.argsort(pts[2:, 0])]  # left→right within bottom row
+    tl, tr = top_pair  # top-left, top-right
+    bl, br = bot_pair  # bottom-left, bottom-right
     return np.array([tl, tr, br, bl], dtype=np.float32)
 
 
 @dataclass
 class HandState:
     detected: bool
-    palm_center: tuple[float, float] | None      # screen coords
-    fingertips: tuple[float, float] | None       # screen coords
+    palm_center: tuple[float, float] | None  # screen coords
+    fingertips: tuple[float, float] | None  # screen coords
     palm_center_cam: tuple[float, float] | None  # raw camera coords (for debug window)
-    hand_dir: tuple[float, float] | None         # normalised wrist→fingers in screen space
-    orientation: str | None                      # "facing_camera" | "parallel_to_floor"
-    gesture: str | None                          # "fist" | "open"
-    velocity: tuple[float, float] | None         # px/frame
+    hand_dir: tuple[float, float] | None  # normalised wrist→fingers in screen space
+    orientation: str | None  # "facing_camera" | "parallel_to_floor"
+    gesture: str | None  # "fist" | "open"
+    velocity: tuple[float, float] | None  # px/frame
     spell: dict | None = None
 
 
@@ -109,8 +111,8 @@ class HandTracker:
         self.REQUIRED_CONFIRMS: int = 2
         self.spell_orientation: str | None = None
         self.spell_charge: float = 0.0
-        self.CHARGE_RATE: float = 0.22   # ~5 frames to full at 30 FPS
-        self.FADE_RATE: float = 0.14     # ~7 frames to fade
+        self.CHARGE_RATE: float = 0.22  # ~5 frames to full at 30 FPS
+        self.FADE_RATE: float = 0.14  # ~7 frames to fade
 
         _ensure_model()
 
@@ -138,8 +140,12 @@ class HandTracker:
         fingers = [(8, 6), (12, 10), (16, 14), (20, 18)]
         extended = 0
         for tip_i, pip_i in fingers:
-            tip_d = math.sqrt((lm[tip_i].x-wx)**2 + (lm[tip_i].y-wy)**2 + (lm[tip_i].z-wz)**2)
-            pip_d = math.sqrt((lm[pip_i].x-wx)**2 + (lm[pip_i].y-wy)**2 + (lm[pip_i].z-wz)**2)
+            tip_d = math.sqrt(
+                (lm[tip_i].x - wx) ** 2 + (lm[tip_i].y - wy) ** 2 + (lm[tip_i].z - wz) ** 2
+            )
+            pip_d = math.sqrt(
+                (lm[pip_i].x - wx) ** 2 + (lm[pip_i].y - wy) ** 2 + (lm[pip_i].z - wz) ** 2
+            )
             if tip_d > pip_d * 0.85:  # lenient: tip must be at least 85% as far as pip
                 extended += 1
         return "open" if extended >= 2 else "fist"  # lower threshold: 2 of 4 fingers
@@ -170,9 +176,9 @@ class HandTracker:
 
         tips = [8, 12, 16, 20]
         lateral = [(lm[i].x - wx) * px + (lm[i].y - wy) * py for i in tips]
-        longit  = [(lm[i].x - wx) * ux + (lm[i].y - wy) * uy for i in tips]
-        spread_lat  = max(lateral) - min(lateral)
-        spread_long = max(longit)  - min(longit)
+        longit = [(lm[i].x - wx) * ux + (lm[i].y - wy) * uy for i in tips]
+        spread_lat = max(lateral) - min(lateral)
+        spread_long = max(longit) - min(longit)
 
         if spread_lat > spread_long * 0.55:
             return "facing_camera"
@@ -201,16 +207,23 @@ class HandTracker:
         if not result.hand_landmarks:
             self.history.clear()
             self.prev_gesture = None
-            return HandState(detected=False, palm_center=None, fingertips=None,
-                             palm_center_cam=None, hand_dir=None, orientation=None,
-                             gesture=None, velocity=None)
+            return HandState(
+                detected=False,
+                palm_center=None,
+                fingertips=None,
+                palm_center_cam=None,
+                hand_dir=None,
+                orientation=None,
+                gesture=None,
+                velocity=None,
+            )
 
         lm = result.hand_landmarks[0]
 
-        palm_cam    = (lm[9].x * w, lm[9].y * h)
-        gesture     = self._gesture(lm)
-        raw_orient  = self._orientation(lm, w, h)
-        tips_cam    = self._fingertips_center(lm, w, h)
+        palm_cam = (lm[9].x * w, lm[9].y * h)
+        gesture = self._gesture(lm)
+        raw_orient = self._orientation(lm, w, h)
+        tips_cam = self._fingertips_center(lm, w, h)
 
         # ── Orientation confirmation (fast, minimal delay) ──
         if raw_orient == self.raw_orientation and raw_orient is not None:
@@ -219,7 +232,9 @@ class HandTracker:
             self.confirm_counter = 0
             self.raw_orientation = raw_orient
 
-        confirmed_orientation = raw_orient if self.confirm_counter >= self.REQUIRED_CONFIRMS else None
+        confirmed_orientation = (
+            raw_orient if self.confirm_counter >= self.REQUIRED_CONFIRMS else None
+        )
 
         # ── Movement tracking ──
         now = time.time()
@@ -264,7 +279,7 @@ class HandTracker:
             return x / w * _SCREEN_W, y / h * _SCREEN_H
 
         def _xform(x, y):
-            pt  = np.array([[[x, y]]], dtype=np.float32)
+            pt = np.array([[[x, y]]], dtype=np.float32)
             out = cv2.perspectiveTransform(pt, M)
             sx, sy = float(out[0][0][0]), float(out[0][0][1])
             # If homography produces wildly out-of-range values (bad calibration),
@@ -275,18 +290,18 @@ class HandTracker:
 
         # Wrist and middle-MCP camera coords for hand direction
         wrist_cam = (lm[0].x * w, lm[0].y * h)
-        mcp_cam   = (lm[9].x * w, lm[9].y * h)
+        mcp_cam = (lm[9].x * w, lm[9].y * h)
 
         if M is not None:
-            palm_screen  = _xform(*palm_cam)
-            tips_screen  = _xform(*tips_cam)
+            palm_screen = _xform(*palm_cam)
+            tips_screen = _xform(*tips_cam)
             wrist_screen = _xform(*wrist_cam)
-            mcp_screen   = _xform(*mcp_cam)
+            mcp_screen = _xform(*mcp_cam)
         else:
-            palm_screen  = _linear(*palm_cam)
-            tips_screen  = _linear(*tips_cam)
+            palm_screen = _linear(*palm_cam)
+            tips_screen = _linear(*tips_cam)
             wrist_screen = _linear(*wrist_cam)
-            mcp_screen   = _linear(*mcp_cam)
+            mcp_screen = _linear(*mcp_cam)
 
         # Normalised hand direction in screen space (wrist → middle MCP)
         hdx = mcp_screen[0] - wrist_screen[0]
@@ -302,8 +317,7 @@ class HandTracker:
             else:
                 # Offset from fingertips along hand direction (away from wrist)
                 off = 30
-                origin = (tips_screen[0] + hand_dir[0] * off,
-                          tips_screen[1] + hand_dir[1] * off)
+                origin = (tips_screen[0] + hand_dir[0] * off, tips_screen[1] + hand_dir[1] * off)
 
             speed = math.hypot(*velocity)
             if speed > 1.0:

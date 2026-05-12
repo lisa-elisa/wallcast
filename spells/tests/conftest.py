@@ -1,4 +1,5 @@
 """Shared fixtures for spells tests."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -27,6 +28,7 @@ def tracker_no_init():
     _orientation, _fingertips_center) work without setup.
     """
     from detector import HandTracker
+
     return HandTracker.__new__(HandTracker)
 
 
@@ -36,8 +38,8 @@ def _fist_landmarks():
     tip-to-wrist distance ~= pip-to-wrist distance, so _gesture returns "fist".
     """
     wrist = (0.5, 0.5, 0.0)
-    pip = (0.5, 0.45, 0.0)      # pip joint slightly above wrist
-    tip = (0.5, 0.46, 0.0)      # tip just barely above pip (curled)
+    pip = (0.5, 0.45, 0.0)  # pip joint slightly above wrist
+    tip = (0.5, 0.46, 0.0)  # tip just barely above pip (curled)
     others = (0.5, 0.45, 0.0)
     lms = []
     for i in range(21):

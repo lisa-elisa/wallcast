@@ -14,6 +14,7 @@ Usage:
   python shared/serve.py --open /falling_balls/index.html
   python shared/serve.py --open /spells/index.html
 """
+
 import argparse
 import http.server
 import os
@@ -66,7 +67,7 @@ def main() -> None:
         print(f"  Falling Balls     : http://localhost:{PORT}/falling_balls/index.html")
         print(f"  Spells       : http://localhost:{PORT}/spells/index.html")
         print(f"  Phone camera page : http://{local_ip}:{PORT}/shared/phone_camera.html")
-        print(f"\n  Open the phone camera URL on your phone (same WiFi).")
+        print("\n  Open the phone camera URL on your phone (same WiFi).")
         print("  Press Ctrl+C to stop.\n")
 
         if not args.no_browser:

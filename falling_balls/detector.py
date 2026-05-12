@@ -1,13 +1,13 @@
 """Object detector: red paper obstacles + yellow projected balls (OpenCV HSV)."""
 
+from dataclasses import dataclass, field
+
 import cv2
 import numpy as np
-from dataclasses import dataclass, field
-from typing import List, Optional
 
 # Red paper HSV ranges — red wraps around 180° in HSV
-RED_LOWER1 = np.array([0,   100, 100], dtype=np.uint8)
-RED_UPPER1 = np.array([10,  255, 255], dtype=np.uint8)
+RED_LOWER1 = np.array([0, 100, 100], dtype=np.uint8)
+RED_UPPER1 = np.array([10, 255, 255], dtype=np.uint8)
 RED_LOWER2 = np.array([160, 100, 100], dtype=np.uint8)
 RED_UPPER2 = np.array([180, 255, 255], dtype=np.uint8)
 
@@ -15,10 +15,10 @@ RED_UPPER2 = np.array([180, 255, 255], dtype=np.uint8)
 YELLOW_LOWER = np.array([18, 100, 100], dtype=np.uint8)
 YELLOW_UPPER = np.array([38, 255, 255], dtype=np.uint8)
 
-MIN_PAPER_AREA  = 2000  # px², filters noise
-MIN_DEFECT_DEPTH = 35   # px — deeper concavity = two merged papers, split them
-MIN_BALL_RADIUS = 5     # px
-MAX_BALL_RADIUS = 60    # px
+MIN_PAPER_AREA = 2000  # px², filters noise
+MIN_DEFECT_DEPTH = 35  # px — deeper concavity = two merged papers, split them
+MIN_BALL_RADIUS = 5  # px
+MAX_BALL_RADIUS = 60  # px
 
 
 @dataclass
@@ -29,7 +29,7 @@ class Obstacle:
     w: float
     h: float
     angle: float
-    vertices: List[List[float]] = field(default_factory=list)
+    vertices: list[list[float]] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -61,17 +61,17 @@ class Detector:
     """
 
     def __init__(self):
-        self._morph_kernel  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        self._small_kernel  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        self._screen_kernel = cv2.getStructuringElement(cv2.MORPH_RECT,    (20, 20))
+        self._morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        self._small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        self._screen_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
 
     def _build_hsv_mask(
         self,
         hsv: np.ndarray,
         lower1: np.ndarray,
         upper1: np.ndarray,
-        lower2: Optional[np.ndarray] = None,
-        upper2: Optional[np.ndarray] = None,
+        lower2: np.ndarray | None = None,
+        upper2: np.ndarray | None = None,
     ) -> np.ndarray:
         mask = cv2.inRange(hsv, lower1, upper1)
         if lower2 is not None and upper2 is not None:
@@ -99,12 +99,12 @@ class Detector:
           BL → arctan2(pos, neg) ≈ +135°
         Ascending arctan2 order → [TL, TR, BR, BL].
         """
-        cx, cy  = pts.mean(axis=0)
-        angles  = np.arctan2(pts[:, 1] - cy, pts[:, 0] - cx)
-        order   = np.argsort(angles)          # TL(-135°) TR(-45°) BR(+45°) BL(+135°)
+        cx, cy = pts.mean(axis=0)
+        angles = np.arctan2(pts[:, 1] - cy, pts[:, 0] - cx)
+        order = np.argsort(angles)  # TL(-135°) TR(-45°) BR(+45°) BL(+135°)
         return pts[order].astype(np.float32)
 
-    def detect_screen_corners(self, frame: np.ndarray) -> Optional[np.ndarray]:
+    def detect_screen_corners(self, frame: np.ndarray) -> np.ndarray | None:
         """
         Find the projected screen rectangle in the camera frame.
 
@@ -129,7 +129,7 @@ class Detector:
 
         # Collect all surviving bright pixel coordinates
         ys, xs = np.where(bright > 0)
-        if len(xs) < 200:          # too few bright pixels → nothing detected
+        if len(xs) < 200:  # too few bright pixels → nothing detected
             return None
 
         pts_xy = np.column_stack([xs, ys]).reshape(-1, 1, 2).astype(np.int32)
@@ -142,7 +142,7 @@ class Detector:
             return None
 
         # Approximate convex hull to a quadrilateral
-        peri   = cv2.arcLength(hull, True)
+        peri = cv2.arcLength(hull, True)
         approx = None
         for eps in [0.02, 0.04, 0.06, 0.10, 0.15]:
             candidate = cv2.approxPolyDP(hull, eps * peri, True)
@@ -166,7 +166,7 @@ class Detector:
 
     def _split_concave(
         self, cnt: np.ndarray, frame_shape: tuple, depth: int = 0
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """
         Recursively split a non-convex contour at its deepest convexity defect.
 
@@ -204,9 +204,9 @@ class Detector:
             return [cnt]  # slight concavity = noise/rounding, not two merged papers
 
         s, e, f, _ = defects[best_i, 0]
-        far_pt   = cnt[f][0].astype(float)   # the V-notch point
-        start_pt = cnt[s][0].astype(float)   # hull edge start
-        end_pt   = cnt[e][0].astype(float)   # hull edge end
+        far_pt = cnt[f][0].astype(float)  # the V-notch point
+        start_pt = cnt[s][0].astype(float)  # hull edge start
+        end_pt = cnt[e][0].astype(float)  # hull edge end
 
         # Cut direction: perpendicular to the hull edge that spans the defect
         edge = end_pt - start_pt
@@ -224,12 +224,12 @@ class Detector:
         ext = float(max(h, w))
         pt1 = tuple((far_pt + perp * ext).astype(int))
         pt2 = tuple((far_pt - perp * ext).astype(int))
-        cv2.line(tmp, pt1, pt2, 0, 5)   # 5 px ensures a clean gap
+        cv2.line(tmp, pt1, pt2, 0, 5)  # 5 px ensures a clean gap
 
         # ── Re-extract sub-contours from each piece ───────────────────────────
         sub_cnts, _ = cv2.findContours(tmp, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        result: List[np.ndarray] = []
+        result: list[np.ndarray] = []
         for sc in sub_cnts:
             if len(sc) < 4 or cv2.contourArea(sc) < MIN_PAPER_AREA // 4:
                 continue
@@ -240,8 +240,8 @@ class Detector:
     # ── Red paper detection ───────────────────────────────────────────────────
 
     def detect_red_papers(
-        self, frame: np.ndarray, roi_mask: Optional[np.ndarray] = None
-    ) -> List[Obstacle]:
+        self, frame: np.ndarray, roi_mask: np.ndarray | None = None
+    ) -> list[Obstacle]:
         """
         Find red paper sheets as oriented bounding-box obstacles.
         Handles V-shaped merged contours by splitting at convexity defects.
@@ -250,7 +250,7 @@ class Detector:
                   Pass the result of build_screen_mask() to restrict
                   detection to inside the projected screen area.
         """
-        hsv  = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = self._build_hsv_mask(hsv, RED_LOWER1, RED_UPPER1, RED_LOWER2, RED_UPPER2)
 
         # Restrict to projected screen area when ROI is available
@@ -259,7 +259,7 @@ class Detector:
 
         raw_contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        obstacles: List[Obstacle] = []
+        obstacles: list[Obstacle] = []
         paper_num = 0
 
         for raw_cnt in raw_contours:
@@ -281,20 +281,22 @@ class Detector:
                     w, h = h, w
                     angle += 90
 
-                obstacles.append(Obstacle(
-                    id=f"paper_{paper_num}",
-                    cx=float(cx),
-                    cy=float(cy),
-                    w=float(w),
-                    h=float(h),
-                    angle=float(angle),
-                    vertices=box.tolist(),
-                ))
+                obstacles.append(
+                    Obstacle(
+                        id=f"paper_{paper_num}",
+                        cx=float(cx),
+                        cy=float(cy),
+                        w=float(w),
+                        h=float(h),
+                        angle=float(angle),
+                        vertices=box.tolist(),
+                    )
+                )
                 paper_num += 1
 
         return obstacles
 
-    def detect_yellow_balls(self, frame: np.ndarray) -> List[Ball]:
+    def detect_yellow_balls(self, frame: np.ndarray) -> list[Ball]:
         """
         Detect projected yellow balls via HSV + Hough circles.
         Used for calibration verification.
@@ -314,7 +316,7 @@ class Detector:
             maxRadius=MAX_BALL_RADIUS,
         )
 
-        balls: List[Ball] = []
+        balls: list[Ball] = []
         if circles is not None:
             for idx, (x, y, r) in enumerate(np.round(circles[0]).astype(int)):
                 balls.append(Ball(id=f"ball_{idx}", x=float(x), y=float(y), r=float(r)))
@@ -324,9 +326,9 @@ class Detector:
     def draw_debug_overlay(
         self,
         frame: np.ndarray,
-        obstacles: List[Obstacle],
-        screen_corners: Optional[np.ndarray] = None,
-        balls: List[Ball] = None,
+        obstacles: list[Obstacle],
+        screen_corners: np.ndarray | None = None,
+        balls: list[Ball] = None,
     ) -> np.ndarray:
         """
         Render detected obstacles, split markers, and balls onto the frame.
@@ -342,8 +344,15 @@ class Detector:
             cv2.polylines(out, [pts], isClosed=True, color=(255, 80, 0), thickness=3)
             for i, (x, y) in enumerate(pts):
                 cv2.circle(out, (int(x), int(y)), 8, (255, 80, 0), -1)
-                cv2.putText(out, str(i + 1), (int(x) + 10, int(y) - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 80, 0), 2)
+                cv2.putText(
+                    out,
+                    str(i + 1),
+                    (int(x) + 10, int(y) - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 80, 0),
+                    2,
+                )
 
         # Draw each paper's oriented bounding box
         for obs in obstacles:
@@ -352,8 +361,9 @@ class Detector:
             cx, cy = int(obs.cx), int(obs.cy)
             cv2.circle(out, (cx, cy), 5, (255, 200, 0), -1)  # centroid dot
             label = f"{obs.id}  {obs.w:.0f}x{obs.h:.0f}  {obs.angle:.1f}deg"
-            cv2.putText(out, label, (cx + 7, cy - 7),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 0), 1)
+            cv2.putText(
+                out, label, (cx + 7, cy - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 0), 1
+            )
 
         # Show convexity defects on raw mask contours (debug only)
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -383,8 +393,15 @@ class Detector:
                 r = 7
                 cv2.line(out, (fx - r, fy - r), (fx + r, fy + r), (0, 140, 255), 2)
                 cv2.line(out, (fx + r, fy - r), (fx - r, fy + r), (0, 140, 255), 2)
-                cv2.putText(out, f"split {depth_px:.0f}px",
-                            (fx + 9, fy + 4), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (0, 140, 255), 1)
+                cv2.putText(
+                    out,
+                    f"split {depth_px:.0f}px",
+                    (fx + 9, fy + 4),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.38,
+                    (0, 140, 255),
+                    1,
+                )
 
         if balls:
             for ball in balls:
@@ -392,7 +409,14 @@ class Detector:
 
         # HUD: count
         cv2.rectangle(out, (0, 0), (280, 28), (0, 0, 0), -1)
-        cv2.putText(out, f"papers: {len(obstacles)}", (6, 18),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 255, 200), 1)
+        cv2.putText(
+            out,
+            f"papers: {len(obstacles)}",
+            (6, 18),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (200, 255, 200),
+            1,
+        )
 
         return out

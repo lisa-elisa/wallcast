@@ -26,18 +26,17 @@ import cv2
 import numpy as np
 import websockets
 import websockets.exceptions
-
-from detector import Detector, Obstacle
+from detector import Detector
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
 SCREEN_W, SCREEN_H = 1920, 1080
-CAM_W, CAM_H       = 1280, 720
-WS_PORT             = 8765
-PHONE_CAM_PORT      = 8766   # phone sends JPEG frames here
-TARGET_FPS          = 30
-CALIBRATION_FILE    = Path(__file__).parent / "calibration" / "calibration_data.json"
-DISP_W, DISP_H     = 960, 540   # debug window size
+CAM_W, CAM_H = 1280, 720
+WS_PORT = 8765
+PHONE_CAM_PORT = 8766  # phone sends JPEG frames here
+TARGET_FPS = 30
+CALIBRATION_FILE = Path(__file__).parent / "calibration" / "calibration_data.json"
+DISP_W, DISP_H = 960, 540  # debug window size
 
 
 def get_local_ip() -> str:
@@ -50,6 +49,7 @@ def get_local_ip() -> str:
     except Exception:
         return "localhost"
 
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except (AttributeError, OSError):
@@ -61,52 +61,59 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-SCREEN_CORNERS = np.array([
-    [0,            0            ],
-    [SCREEN_W - 1, 0            ],
-    [SCREEN_W - 1, SCREEN_H - 1],
-    [0,            SCREEN_H - 1],
-], dtype=np.float32)
+SCREEN_CORNERS = np.array(
+    [
+        [0, 0],
+        [SCREEN_W - 1, 0],
+        [SCREEN_W - 1, SCREEN_H - 1],
+        [0, SCREEN_H - 1],
+    ],
+    dtype=np.float32,
+)
 
 CORNER_COLORS = [(50, 220, 50), (50, 200, 255), (255, 100, 50), (180, 50, 255)]
-CORNER_NAMES  = ["TL", "TR", "BR", "BL"]
+CORNER_NAMES = ["TL", "TR", "BR", "BL"]
 
 # ── Shared state ──────────────────────────────────────────────────────────────
 # Written by camera thread, read by WS handlers + debug thread.
 
 _sh = {
-    "frame":   None,   # latest camera frame (np.ndarray)
-    "M":       None,   # current camera→screen homography
-    "corners": None,   # latest detected screen corners (4×2 float32) or None
-    "found":   False,  # True when screen detected this frame
+    "frame": None,  # latest camera frame (np.ndarray)
+    "M": None,  # current camera→screen homography
+    "corners": None,  # latest detected screen corners (4×2 float32) or None
+    "found": False,  # True when screen detected this frame
     # manual override — set by debug thread, read by camera thread
-    "manual":  None,   # None = auto-detect; np.ndarray = use these corners
+    "manual": None,  # None = auto-detect; np.ndarray = use these corners
 }
-_sh_lock    = threading.Lock()
-_cam_ready  = threading.Event()
-_shutdown   = threading.Event()
+_sh_lock = threading.Lock()
+_cam_ready = threading.Event()
+_shutdown = threading.Event()
 _threads: list[threading.Thread] = []
 
 # ── Calibration ───────────────────────────────────────────────────────────────
+
 
 def load_homography() -> np.ndarray:
     if CALIBRATION_FILE.exists():
         data = json.loads(CALIBRATION_FILE.read_text(encoding="utf-8"))
         src = np.array(data["camera_points"], dtype=np.float32)
-        dst = np.array(data["screen_points"],  dtype=np.float32)
-        M   = cv2.getPerspectiveTransform(src, dst)
+        dst = np.array(data["screen_points"], dtype=np.float32)
+        M = cv2.getPerspectiveTransform(src, dst)
         log.info("Calibration loaded from %s", CALIBRATION_FILE)
         return M
 
-    log.warning("No calibration file - linear scale %dx%d -> %dx%d",
-                CAM_W, CAM_H, SCREEN_W, SCREEN_H)
+    log.warning(
+        "No calibration file - linear scale %dx%d -> %dx%d", CAM_W, CAM_H, SCREEN_W, SCREEN_H
+    )
     sx, sy = SCREEN_W / CAM_W, SCREEN_H / CAM_H
     return np.array([[sx, 0, 0], [0, sy, 0], [0, 0, 1]], dtype=np.float64)
 
+
 # ── Coordinate transform ──────────────────────────────────────────────────────
 
+
 def _xform_pt(M, x, y):
-    pt  = np.array([[[x, y]]], dtype=np.float32)
+    pt = np.array([[[x, y]]], dtype=np.float32)
     out = cv2.perspectiveTransform(pt, M)
     return float(out[0][0][0]), float(out[0][0][1])
 
@@ -114,26 +121,33 @@ def _xform_pt(M, x, y):
 def transform_obstacles(obstacles, M) -> list[dict]:
     result = []
     for obs in obstacles:
-        tx, ty  = _xform_pt(M, obs.cx, obs.cy)
-        tverts  = [list(_xform_pt(M, vx, vy)) for vx, vy in obs.vertices]
-        pts     = np.array(tverts, dtype=np.float32)
-        rect    = cv2.minAreaRect(pts)
+        tx, ty = _xform_pt(M, obs.cx, obs.cy)
+        tverts = [list(_xform_pt(M, vx, vy)) for vx, vy in obs.vertices]
+        pts = np.array(tverts, dtype=np.float32)
+        rect = cv2.minAreaRect(pts)
         (_, _), (w, h), angle = rect
         if w < h:
             w, h = h, w
             angle += 90
         d = obs.to_dict()
-        d.update(cx=round(tx, 1), cy=round(ty, 1),
-                 w=round(float(w), 1), h=round(float(h), 1),
-                 angle=round(float(angle), 2),
-                 vertices=[[round(x, 1), round(y, 1)] for x, y in tverts])
+        d.update(
+            cx=round(tx, 1),
+            cy=round(ty, 1),
+            w=round(float(w), 1),
+            h=round(float(h), 1),
+            angle=round(float(angle), 2),
+            vertices=[[round(x, 1), round(y, 1)] for x, y in tverts],
+        )
         result.append(d)
     return result
 
+
 # ── Camera thread ─────────────────────────────────────────────────────────────
 
-def camera_thread(camera_idx: int, fallback_M: np.ndarray,
-                  debug: bool, debug_q: "queue.Queue | None"):
+
+def camera_thread(
+    camera_idx: int, fallback_M: np.ndarray, debug: bool, debug_q: "queue.Queue | None"
+):
 
     cap = cv2.VideoCapture(camera_idx, cv2.CAP_DSHOW)
     if not cap.isOpened():
@@ -145,28 +159,31 @@ def camera_thread(camera_idx: int, fallback_M: np.ndarray,
         return
 
     try:
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
-        log.info("Camera %d opened: %dx%d",
-                 camera_idx,
-                 int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                 int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        log.info(
+            "Camera %d opened: %dx%d",
+            camera_idx,
+            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
 
-        detector     = Detector()
-        last_corners = [None]   # mutable ref
+        detector = Detector()
+        last_corners = [None]  # mutable ref
 
         while not _shutdown.is_set():
             ret, frame = cap.read()
             if not ret:
                 continue
-            _process_frame(frame, detector, fallback_M,
-                           debug_q if debug else None, last_corners)
+            _process_frame(frame, detector, fallback_M, debug_q if debug else None, last_corners)
     finally:
         cap.release()
         log.info("Camera released")
 
+
 # ── Debug window thread — drag-to-adjust corners ──────────────────────────────
+
 
 def debug_window_thread(q: queue.Queue):
     """
@@ -190,11 +207,11 @@ def debug_window_thread(q: queue.Queue):
         return [dx * sx, dy * sy]
 
     # Drag state (all in camera-space coordinates)
-    edit_pts   = None   # list of 4 [x, y] in cam space — what's being edited
-    drag_idx   = None   # 0-3 while dragging
-    auto_mode  = True   # follow auto-detection; False = manual
+    edit_pts = None  # list of 4 [x, y] in cam space — what's being edited
+    drag_idx = None  # 0-3 while dragging
+    auto_mode = True  # follow auto-detection; False = manual
 
-    HIT_R_CAM  = 40.0  # hit radius in camera pixels
+    HIT_R_CAM = 40.0  # hit radius in camera pixels
 
     def on_mouse(event, dx, dy, flags, param):
         nonlocal drag_idx, edit_pts, auto_mode
@@ -205,8 +222,8 @@ def debug_window_thread(q: queue.Queue):
             dists = [((p[0] - cx) ** 2 + (p[1] - cy) ** 2) ** 0.5 for p in edit_pts]
             i = int(np.argmin(dists))
             if dists[i] < HIT_R_CAM:
-                drag_idx  = i
-                auto_mode = False   # entering manual mode on first drag
+                drag_idx = i
+                auto_mode = False  # entering manual mode on first drag
 
         elif event == cv2.EVENT_MOUSEMOVE and drag_idx is not None:
             edit_pts[drag_idx] = [cx, cy]
@@ -253,26 +270,44 @@ def debug_window_thread(q: queue.Queue):
                 cv2.line(display, pts_d[i], pts_d[(i + 1) % 4], (200, 200, 200), 1)
 
             # Corner handles
-            for i, (pd, color) in enumerate(zip(pts_d, CORNER_COLORS)):
-                is_dragged = (i == drag_idx)
+            for i, (pd, color) in enumerate(zip(pts_d, CORNER_COLORS, strict=False)):
+                is_dragged = i == drag_idx
                 radius = 14 if is_dragged else 10
-                cv2.circle(display, pd, radius + 3, (255, 255, 255), -1)   # white halo
-                cv2.circle(display, pd, radius,     color,           -1)
-                cv2.putText(display, f"{i + 1} {CORNER_NAMES[i]}",
-                            (pd[0] + 14, pd[1] + 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+                cv2.circle(display, pd, radius + 3, (255, 255, 255), -1)  # white halo
+                cv2.circle(display, pd, radius, color, -1)
+                cv2.putText(
+                    display,
+                    f"{i + 1} {CORNER_NAMES[i]}",
+                    (pd[0] + 14, pd[1] + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    color,
+                    1,
+                )
 
         # Status bar
         mode_label = "AUTO" if auto_mode else "MANUAL"
         mode_color = (50, 200, 50) if auto_mode else (50, 160, 255)
         bar_y = DISP_H - 52
         cv2.rectangle(display, (0, bar_y), (DISP_W, DISP_H), (20, 20, 20), -1)
-        cv2.putText(display,
-                    f"Mode: {mode_label}   [a] auto   [r] reset   [s] save calibration   [q] quit",
-                    (10, bar_y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.42, mode_color, 1)
-        cv2.putText(display,
-                    "Drag numbered dots to adjust screen corners. Homography updates live.",
-                    (10, bar_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (160, 160, 160), 1)
+        cv2.putText(
+            display,
+            f"Mode: {mode_label}   [a] auto   [r] reset   [s] save calibration   [q] quit",
+            (10, bar_y + 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.42,
+            mode_color,
+            1,
+        )
+        cv2.putText(
+            display,
+            "Drag numbered dots to adjust screen corners. Homography updates live.",
+            (10, bar_y + 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.38,
+            (160, 160, 160),
+            1,
+        )
 
         cv2.imshow(WIN, display)
         key = cv2.waitKey(1) & 0xFF
@@ -280,7 +315,7 @@ def debug_window_thread(q: queue.Queue):
         if key == ord("q"):
             break
 
-        elif key == ord("a"):
+        if key == ord("a"):
             # Return to auto mode — clear manual override
             auto_mode = True
             with _sh_lock:
@@ -289,7 +324,7 @@ def debug_window_thread(q: queue.Queue):
 
         elif key == ord("r") and auto_corners is not None:
             # Reset edit_pts to last auto-detected position
-            edit_pts  = [list(p) for p in auto_corners]
+            edit_pts = [list(p) for p in auto_corners]
             auto_mode = True
             with _sh_lock:
                 _sh["manual"] = None
@@ -310,11 +345,17 @@ def debug_window_thread(q: queue.Queue):
 
     cv2.destroyAllWindows()
 
+
 # ── Phone camera receiver ─────────────────────────────────────────────────────
 
-def _process_frame(frame: np.ndarray, detector: Detector,
-                   fallback_M: np.ndarray, debug_q: "queue.Queue | None",
-                   last_corners_ref: list):
+
+def _process_frame(
+    frame: np.ndarray,
+    detector: Detector,
+    fallback_M: np.ndarray,
+    debug_q: "queue.Queue | None",
+    last_corners_ref: list,
+):
     """
     Shared frame-processing logic used by both camera_thread and phone handler.
     Updates _sh in-place.
@@ -324,27 +365,27 @@ def _process_frame(frame: np.ndarray, detector: Detector,
 
     if manual is not None:
         corners = manual
-        M       = cv2.getPerspectiveTransform(corners, SCREEN_CORNERS)
-        found   = True
+        M = cv2.getPerspectiveTransform(corners, SCREEN_CORNERS)
+        found = True
     else:
         corners = detector.detect_screen_corners(frame)
         if corners is not None:
-            M                    = cv2.getPerspectiveTransform(corners, SCREEN_CORNERS)
-            last_corners_ref[0]  = corners
-            found                = True
+            M = cv2.getPerspectiveTransform(corners, SCREEN_CORNERS)
+            last_corners_ref[0] = corners
+            found = True
         elif last_corners_ref[0] is not None:
             corners = last_corners_ref[0]
-            M       = cv2.getPerspectiveTransform(corners, SCREEN_CORNERS)
-            found   = True
+            M = cv2.getPerspectiveTransform(corners, SCREEN_CORNERS)
+            found = True
         else:
-            M     = fallback_M
+            M = fallback_M
             found = False
 
     with _sh_lock:
-        _sh["frame"]   = frame
-        _sh["M"]       = M
+        _sh["frame"] = frame
+        _sh["M"] = M
         _sh["corners"] = corners
-        _sh["found"]   = found
+        _sh["found"] = found
     _cam_ready.set()
 
     if debug_q is not None:
@@ -354,22 +395,21 @@ def _process_frame(frame: np.ndarray, detector: Detector,
             pass
 
 
-async def phone_camera_handler(websocket, fallback_M: np.ndarray,
-                                debug_q: "queue.Queue | None"):
+async def phone_camera_handler(websocket, fallback_M: np.ndarray, debug_q: "queue.Queue | None"):
     """
     Receives JPEG frames (binary) from phone_camera.html via WebSocket.
     Decodes and processes them exactly like camera_thread does.
     """
     addr = websocket.remote_address
     log.info("Phone camera connected: %s", addr)
-    detector     = Detector()
-    last_corners = [None]   # mutable ref for _process_frame
+    detector = Detector()
+    last_corners = [None]  # mutable ref for _process_frame
 
     try:
         async for message in websocket:
             if not isinstance(message, bytes):
                 continue
-            arr   = np.frombuffer(message, dtype=np.uint8)
+            arr = np.frombuffer(message, dtype=np.uint8)
             frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
             if frame is None:
                 continue
@@ -386,6 +426,7 @@ async def phone_camera_handler(websocket, fallback_M: np.ndarray,
 
 # ── WebSocket handler ─────────────────────────────────────────────────────────
 
+
 async def ws_handler(websocket, fallback_M: np.ndarray):
     addr = websocket.remote_address
     log.info("Client connected: %s", addr)
@@ -397,26 +438,32 @@ async def ws_handler(websocket, fallback_M: np.ndarray):
     try:
         while True:
             with _sh_lock:
-                frame   = _sh["frame"].copy() if _sh["frame"] is not None else None
-                M       = _sh["M"] if _sh["M"] is not None else fallback_M
+                frame = _sh["frame"].copy() if _sh["frame"] is not None else None
+                M = _sh["M"] if _sh["M"] is not None else fallback_M
                 corners = _sh["corners"]
-                found   = _sh["found"]
+                found = _sh["found"]
 
             if frame is not None:
-                roi_mask  = detector.build_screen_mask(frame, corners) if corners is not None else None
+                roi_mask = (
+                    detector.build_screen_mask(frame, corners) if corners is not None else None
+                )
                 obstacles = detector.detect_red_papers(frame, roi_mask)
-                payload   = transform_obstacles(obstacles, M)
-                status    = "screen_ok" if found else "screen_lost"
+                payload = transform_obstacles(obstacles, M)
+                status = "screen_ok" if found else "screen_lost"
             else:
                 payload = []
-                status  = "no_camera"
+                status = "no_camera"
 
             try:
-                await websocket.send(json.dumps({
-                    "type":      "obstacles",
-                    "obstacles": payload,
-                    "screen":    status,
-                }))
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "obstacles",
+                            "obstacles": payload,
+                            "screen": status,
+                        }
+                    )
+                )
             except websockets.exceptions.ConnectionClosed:
                 break
 
@@ -424,19 +471,18 @@ async def ws_handler(websocket, fallback_M: np.ndarray):
     finally:
         log.info("Client disconnected: %s", addr)
 
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def main(camera_idx: int, port: int, debug: bool, phone: bool,
-               localhost_only: bool = False):
-    local_ip   = get_local_ip()
+
+async def main(camera_idx: int, port: int, debug: bool, phone: bool, localhost_only: bool = False):
+    local_ip = get_local_ip()
     fallback_M = load_homography()
 
     debug_q = None
     if debug:
         debug_q = queue.Queue(maxsize=2)
-        t = threading.Thread(
-            target=debug_window_thread, args=(debug_q,), daemon=True
-        )
+        t = threading.Thread(target=debug_window_thread, args=(debug_q,), daemon=True)
         t.start()
         _threads.append(t)
 
@@ -456,9 +502,12 @@ async def main(camera_idx: int, port: int, debug: bool, phone: bool,
         await phone_camera_handler(ws, fallback_M, debug_q)
 
     # Obstacle stream → browser (always localhost — small JSON payloads)
-    obs_server = await websockets.serve(
-        obs_handler, "localhost", port,
-        max_size=10_000,  # small JSON payloads
+    # The handle is kept so the server is not garbage-collected.
+    obs_server = await websockets.serve(  # noqa: F841 — handle pins lifetime
+        obs_handler,
+        "localhost",
+        port,
+        max_size=10_000,
     )
 
     # Phone camera input — bind depends on --localhost-only flag
@@ -470,8 +519,10 @@ async def main(camera_idx: int, port: int, debug: bool, phone: bool,
         log.warning("=" * 60)
     log.info("Phone cam WS bind: %s:%d", bind_host, PHONE_CAM_PORT)
 
-    cam_server = await websockets.serve(
-        cam_handler, bind_host, PHONE_CAM_PORT,
+    cam_server = await websockets.serve(  # noqa: F841 — handle pins lifetime
+        cam_handler,
+        bind_host,
+        PHONE_CAM_PORT,
         max_size=2_000_000,  # 2 MB hard cap on JPEG frames
     )
 
@@ -489,17 +540,20 @@ async def main(camera_idx: int, port: int, debug: bool, phone: bool,
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--camera", type=int,  default=0,     help="Local camera index")
-    p.add_argument("--port",   type=int,  default=WS_PORT)
-    p.add_argument("--debug",  action="store_true",       help="Show debug window")
-    p.add_argument("--phone",  action="store_true",
-                   help="Use phone camera only (disables local camera)")
-    p.add_argument("--localhost-only", action="store_true",
-                   help="Bind every WebSocket on 127.0.0.1 (disables phone camera)")
+    p.add_argument("--camera", type=int, default=0, help="Local camera index")
+    p.add_argument("--port", type=int, default=WS_PORT)
+    p.add_argument("--debug", action="store_true", help="Show debug window")
+    p.add_argument(
+        "--phone", action="store_true", help="Use phone camera only (disables local camera)"
+    )
+    p.add_argument(
+        "--localhost-only",
+        action="store_true",
+        help="Bind every WebSocket on 127.0.0.1 (disables phone camera)",
+    )
     args = p.parse_args()
     try:
-        asyncio.run(main(args.camera, args.port, args.debug, args.phone,
-                         args.localhost_only))
+        asyncio.run(main(args.camera, args.port, args.debug, args.phone, args.localhost_only))
     except KeyboardInterrupt:
         _shutdown.set()
         for t in _threads:

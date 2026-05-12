@@ -1,4 +1,5 @@
 """Shared fixtures for falling_balls tests."""
+
 import sys
 from pathlib import Path
 
@@ -10,7 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 W, H = 1280, 720
-RED  = (0, 0, 220)
+RED = (0, 0, 220)
 BLUE = (200, 0, 0)
 
 
@@ -37,4 +38,5 @@ def red_horizontal_paper():
 @pytest.fixture
 def detector():
     from detector import Detector
+
     return Detector()

@@ -1,0 +1,61 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+# Don't lint vendored or generated files
+extend-exclude = [
+    "falling_balls/js/matter.min.js",
+    "review/",
+    "**/calibration/calibration_data*.json",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "W",     # pycodestyle warnings
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "C4",    # flake8-comprehensions
+    "RET",   # flake8-return
+    "TID",   # tidy-imports
+    "PIE",   # flake8-pie
+    "PL",    # pylint subset
+]
+ignore = [
+    "E501",     # line-too-long — handled by formatter where it matters
+    "E701",     # multiple-statements-on-one-line — `try: x` blocks in launchers
+    "PLR0911",  # too-many-return-statements — _split_concave has legit fallback chain
+    "PLR0912",  # too-many-branches — _process_frame and detect() have legit branchy logic
+    "PLR0913",  # too-many-arguments — server functions take many context params
+    "PLR0915",  # too-many-statements — main() launchers
+    "PLR2004",  # magic-value-comparison — HSV ranges, port numbers are domain constants
+    "PLC0415",  # import-outside-top-level — lazy mediapipe / sub-imports are intentional
+    "PLW1510",  # subprocess.run without check — port-kill logic tolerates failure
+    "B008",     # function-call-in-default-argument — numpy arrays as defaults are fine
+    "SIM105",   # contextlib.suppress — `try/except: pass` reads fine in noise-tolerant code
+    "SIM108",   # if/else vs ternary — sometimes a plain if/else is more readable
+    "SIM117",   # nested with — readable as-is in our async + cv2 contexts
+    "RET504",   # unnecessary-assignment-before-return — explicit return values aid debugging
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can be a bit looser; in-function `import server` is intentional
+# because each subproject's tests share the module name and we add cwd
+# to sys.path per-subproject via conftest.
+"**/tests/**" = ["E402", "F401", "PLC0415"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+# Run each subproject's tests separately (`pytest falling_balls/tests` and
+# `pytest spells/tests`) — both define a `detector`/`server` module, so
+# pytest's module cache collides if collected in one session.
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_asyncio",
+]

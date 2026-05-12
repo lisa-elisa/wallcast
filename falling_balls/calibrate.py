@@ -21,15 +21,18 @@ SCREEN_W, SCREEN_H = 1920, 1080
 OUTPUT_FILE = Path(__file__).parent / "calibration" / "calibration_data.json"
 
 # Screen corners in screen space (TL, TR, BR, BL)
-SCREEN_CORNERS = np.array([
-    [0,           0           ],
-    [SCREEN_W - 1, 0           ],
-    [SCREEN_W - 1, SCREEN_H - 1],
-    [0,           SCREEN_H - 1],
-], dtype=np.float32)
+SCREEN_CORNERS = np.array(
+    [
+        [0, 0],
+        [SCREEN_W - 1, 0],
+        [SCREEN_W - 1, SCREEN_H - 1],
+        [0, SCREEN_H - 1],
+    ],
+    dtype=np.float32,
+)
 
 CORNER_LABELS = ["1 — Top-Left", "2 — Top-Right", "3 — Bottom-Right", "4 — Bottom-Left"]
-CORNER_COLORS = [(0,255,0), (0,200,255), (255,100,0), (200,0,255)]
+CORNER_COLORS = [(0, 255, 0), (0, 200, 255), (255, 100, 0), (200, 0, 255)]
 
 clicked: list[list[int]] = []
 
@@ -37,7 +40,7 @@ clicked: list[list[int]] = []
 def on_mouse(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN and len(clicked) < 4:
         clicked.append([x, y])
-        print(f"  Point {len(clicked)}: ({x}, {y})  [{CORNER_LABELS[len(clicked)-1]}]")
+        print(f"  Point {len(clicked)}: ({x}, {y})  [{CORNER_LABELS[len(clicked) - 1]}]")
 
 
 def main():
@@ -73,8 +76,15 @@ def main():
         # Draw already-clicked points
         for i, pt in enumerate(clicked):
             cv2.circle(display, tuple(pt), 10, CORNER_COLORS[i], -1)
-            cv2.putText(display, str(i + 1), (pt[0] + 12, pt[1] - 8),
-                        cv2.FONT_HERSHEY_DUPLEX, 0.8, CORNER_COLORS[i], 2)
+            cv2.putText(
+                display,
+                str(i + 1),
+                (pt[0] + 12, pt[1] - 8),
+                cv2.FONT_HERSHEY_DUPLEX,
+                0.8,
+                CORNER_COLORS[i],
+                2,
+            )
 
         # Instruction overlay
         if len(clicked) < 4:
@@ -88,10 +98,8 @@ def main():
         cv2.rectangle(display, (0, 0), (display.shape[1], 50), (0, 0, 0), -1)
         cv2.putText(display, text, (15, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-        # Preview homography if all 4 points are set
+        # Preview the picked quadrilateral when all 4 points are set
         if len(clicked) == 4:
-            src = np.array(clicked, dtype=np.float32)
-            # Draw quadrilateral
             pts = np.array(clicked, dtype=np.int32).reshape((-1, 1, 2))
             cv2.polylines(display, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
 
@@ -109,7 +117,7 @@ def main():
             print("Restart server.py to apply.")
             break
 
-        elif key == ord("r"):
+        if key == ord("r"):
             clicked.clear()
             print("Reset — click 4 corners again.\n")
 
