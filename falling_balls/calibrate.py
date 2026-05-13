@@ -55,7 +55,7 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    WIN = "Wallplay Calibration — click 4 corners TL>TR>BR>BL"
+    WIN = "Wallcast Calibration — click 4 corners TL>TR>BR>BL"
     cv2.namedWindow(WIN)
     cv2.setMouseCallback(WIN, on_mouse)
 

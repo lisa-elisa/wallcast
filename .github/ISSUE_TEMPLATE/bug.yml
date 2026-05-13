@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Wallplay does not work the way it should.
+description: Something in Wallcast does not work the way it should.
 title: "[bug] "
 labels: ["bug"]
 body:
@@ -13,7 +13,7 @@ body:
     id: mode
     attributes:
       label: Mode
-      description: Which Wallplay mode is affected?
+      description: Which Wallcast mode is affected?
       options:
         - Falling Balls
         - Spells

@@ -30,7 +30,7 @@ import websockets  # noqa: E402
 import websockets.exceptions  # noqa: E402
 from detector import Detector  # noqa: E402
 
-from shared.wallplay_core.config import (  # noqa: E402
+from shared.wallcast_core.config import (  # noqa: E402
     CAM_H,
     CAM_W,
     DISP_H,
@@ -42,13 +42,13 @@ from shared.wallplay_core.config import (  # noqa: E402
     TARGET_FPS,
     WS_PORT,
 )
-from shared.wallplay_core.homography import (  # noqa: E402
+from shared.wallcast_core.homography import (  # noqa: E402
     linear_fallback,
     load_homography_file,
     transform_point,
     transform_points,
 )
-from shared.wallplay_core.netutil import get_local_ip  # noqa: E402
+from shared.wallcast_core.netutil import get_local_ip  # noqa: E402
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ CORNER_NAMES = ["TL", "TR", "BR", "BL"]
 # ── Shared state ──────────────────────────────────────────────────────────────
 # Written by camera thread, read by WS handlers + debug thread.
 # TODO(PR 4 follow-up): wrap _sh in a CameraSnapshot dataclass to remove
-# implicit aliasing. shared.wallplay_core.snapshot.CameraSnapshot is ready.
+# implicit aliasing. shared.wallcast_core.snapshot.CameraSnapshot is ready.
 
 _sh = {
     "frame": None,  # latest camera frame (np.ndarray)
@@ -186,7 +186,7 @@ def debug_window_thread(q: queue.Queue):
     Homography updates live in the camera thread via _sh['manual'].
     """
 
-    WIN = "Wallplay (Falling Balls) — Debug  [drag corners | a=auto | s=save | r=reset | q=quit]"
+    WIN = "Wallcast (Falling Balls) — Debug  [drag corners | a=auto | s=save | r=reset | q=quit]"
     cv2.namedWindow(WIN, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(WIN, DISP_W, DISP_H)
 

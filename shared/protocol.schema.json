@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Wallplay WebSocket protocol",
+  "title": "Wallcast WebSocket protocol",
   "description": "Payloads sent from server.py to the browser on port 8765. One of two shapes depending on mode.",
   "oneOf": [
     {

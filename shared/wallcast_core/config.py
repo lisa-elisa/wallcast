@@ -1,4 +1,4 @@
-"""Shared screen/camera/network constants for both Wallplay modes."""
+"""Shared screen/camera/network constants for both Wallcast modes."""
 
 import numpy as np
 
