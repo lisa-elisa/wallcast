@@ -9,17 +9,9 @@ hand. Webcam or phone (over WiFi), projector, and a browser is all you need.
 [![tests](https://github.com/5theobytes/wallcast/actions/workflows/test.yml/badge.svg)](https://github.com/5theobytes/wallcast/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-<!--
-  Hero media: drop two short clips (≤ 5 s, ≤ 1 MB each) into docs/media/
-  and uncomment the block below. WebM/MP4 work via <video>; GIFs render
-  inline on github.com.
-
-  <p align="center">
-    <video src="docs/media/falling-balls.webm" autoplay muted loop playsinline width="48%"></video>
-    <video src="docs/media/hand-sparks.webm"   autoplay muted loop playsinline width="48%"></video>
-  </p>
--->
-
+<p align="center">
+  <img src="docs/media/hero.png" alt="Wallcast — falling balls catching on red paper; palm-cast spell rings; finger beams of light" width="100%">
+</p>
 
 ## The two modes
 
