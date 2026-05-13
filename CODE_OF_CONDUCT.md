@@ -31,7 +31,7 @@ Examples of unacceptable behaviour:
 ## Enforcement
 
 Instances of unacceptable behaviour may be reported to the project maintainer
-[@lisa-elisa](https://github.com/lisa-elisa) via a GitHub direct message or by
+[@5theobytes](https://github.com/5theobytes) via a GitHub direct message or by
 opening a private issue. All complaints will be reviewed and investigated
 promptly and fairly.
 

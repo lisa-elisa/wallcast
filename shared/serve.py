@@ -2,11 +2,11 @@
 HTTP server for the browser display + phone camera page.
 
 Serves the entire repository root on 0.0.0.0 so phones on the same WiFi
-can access it. From the root you can navigate to either AR mode:
+can access it. From the root you can navigate to either projection mode:
 
   http://localhost:8000/                          -> landing page
   http://localhost:8000/falling_balls/index.html  -> falling balls display
-  http://localhost:8000/spells/index.html    -> hand sparks display
+  http://localhost:8000/spells/index.html    -> spells display
   http://<IP>:8000/shared/phone_camera.html       -> phone camera (both modes)
 
 Usage:

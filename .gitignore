@@ -13,20 +13,21 @@ __pycache__/
 venv/
 .env
 
-# Project-specific binaries
+# Project-specific binaries (large or auto-downloaded)
 platform-tools/
-hand_sparks/hand_landmarker.task
-hand_sparks/debug_frame.jpg
+spells/hand_landmarker.task
+spells/debug_frame.jpg
 falling_balls/image.png
 
-# Personal notes / source materials (kept locally, not published)
+# Local notes — kept out of the published repo
 falling_balls/PLAN.md
 falling_balls/SETUP.md
-hand_sparks/CLAUDE.md
+spells/NOTES.md
 
 # User calibration data — keep the .example.json template
 **/calibration/calibration_data.json
 !**/calibration/calibration_data.example.json
 
-# Internal review / brainstorm materials — not published
+# Local scratch and review notes
 review/
+notes/

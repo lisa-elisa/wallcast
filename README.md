@@ -1,4 +1,4 @@
-# Wallplay
+# Wallcast
 
 Stick paper to a wall. Point a webcam at it. Watch physics happen.
 
@@ -6,7 +6,20 @@ Two camera-driven wall projections sharing the same Python-to-browser pipeline �
 bounces yellow balls off red paper sheets, the other shoots glowing particles from your
 hand. Webcam or phone (over WiFi), projector, and a browser is all you need.
 
-![tests](https://github.com/lisa-elisa/wallplay/actions/workflows/test.yml/badge.svg)
+[![tests](https://github.com/5theobytes/wallcast/actions/workflows/test.yml/badge.svg)](https://github.com/5theobytes/wallcast/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+<!--
+  Hero media: drop two short clips (≤ 5 s, ≤ 1 MB each) into docs/media/
+  and uncomment the block below. WebM/MP4 work via <video>; GIFs render
+  inline on github.com.
+
+  <p align="center">
+    <video src="docs/media/falling-balls.webm" autoplay muted loop playsinline width="48%"></video>
+    <video src="docs/media/hand-sparks.webm"   autoplay muted loop playsinline width="48%"></video>
+  </p>
+-->
+
 
 ## The two modes
 
@@ -66,10 +79,11 @@ restrict every bind to `127.0.0.1`.
 ```
 .
 ├── index.html              # landing page (mode picker)
-├── shared/                 # HTTP server + phone-camera page + firewall helper
+├── shared/                 # HTTP server, phone-camera page, wallcast_core/, JSON-schema
 ├── falling_balls/          # OpenCV color detection + Matter.js physics
 ├── spells/            # MediaPipe hand tracking + particles
-└── .github/workflows/      # pytest CI on Windows
+├── docs/media/             # hero clips (added separately, see CONTRIBUTING)
+└── .github/workflows/      # pytest + ruff CI on Ubuntu / macOS / Windows
 ```
 
 ## Requirements
@@ -79,6 +93,11 @@ restrict every bind to `127.0.0.1`.
 - A webcam, or an Android phone on the same WiFi (optionally USB + ADB for lower latency)
 - A projector or a second 1920×1080 monitor
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and PR workflow, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the community standards.
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — see [CHANGELOG.md](CHANGELOG.md) for release notes.

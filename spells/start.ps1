@@ -1,4 +1,4 @@
-# Hand Sparks launcher — one window, close it to stop everything.
+# Spells launcher — one window, close it to stop everything.
 # Usage:
 #   .\start.ps1              (default: no rotation)
 #   .\start.ps1 -Rotate 180  (rotate phone camera frame)
@@ -22,7 +22,7 @@ Start-Sleep -Milliseconds 800
 
 # ── Start shared HTTP server hidden in background ─────────────────────────────
 $pServe = Start-Process python `
-    -ArgumentList @($servePy, "--open", "/hand_sparks/index.html") `
+    -ArgumentList @($servePy, "--open", "/spells/index.html") `
     -PassThru -WindowStyle Hidden
 Write-Host "HTTP server started (PID $($pServe.Id))"
 
@@ -41,7 +41,7 @@ if (Test-Path $adb) {
 }
 
 Write-Host ""
-Write-Host "  Browser : http://localhost:8000/hand_sparks/index.html"
+Write-Host "  Browser : http://localhost:8000/spells/index.html"
 Write-Host "  Phone   : http://localhost:8000/shared/phone_camera.html  (USB/ADB)"
 if ($Rotate -ne 0) { Write-Host "  Rotate  : $Rotate deg" }
 Write-Host ""

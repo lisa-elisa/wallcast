@@ -1,5 +1,5 @@
 /**
- * Wallplay — Falling Balls renderer + WebSocket client
+ * Wallcast — Falling Balls renderer + WebSocket client
  *
  * Physics:   Matter.js 0.19
  * Canvas:    1920×1080 logical
