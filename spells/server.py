@@ -57,7 +57,7 @@ CALIBRATION_FILE = Path(__file__).parent / "calibration" / "calibration_data.jso
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except (AttributeError, OSError):
-    pass  # stdout не текстовый (CREATE_NO_WINDOW), или уже сконфигурирован
+    pass  # stdout not text (CREATE_NO_WINDOW), or already configured
 
 logging.basicConfig(
     level=logging.INFO,

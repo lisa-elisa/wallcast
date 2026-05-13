@@ -73,7 +73,7 @@ def main():
     kill_ports()
     time.sleep(0.8)
 
-    # ── shared/serve.py — HTTP сервер (раздаёт весь репо) ────────────────────
+    # ── shared/serve.py — HTTP host (serves the whole repo) ────────────────────
     p_serve = subprocess.Popen(
         [sys.executable, str(SERVE_PY), "--open", "/spells/index.html"],
         creationflags=subprocess.CREATE_NO_WINDOW,
@@ -83,7 +83,7 @@ def main():
     time.sleep(1)
     setup_adb()
 
-    # ── server.py — WebSocket + детекция ─────────────────────────────────────
+    # ── server.py — WebSocket + detection ─────────────────────────────────────
     server_cmd = [sys.executable, "server.py", "--phone", "--debug"]
     if args.rotate:
         server_cmd += ["--rotate", str(args.rotate)]
@@ -112,7 +112,7 @@ def main():
     print("  Close this window or press Ctrl+C to stop everything.")
     print()
 
-    # ── ADB watchdog: повторно пробрасываем порты каждые 10 сек ─────────────
+    # ── ADB watchdog: re-forward ports every 10 seconds ─────────────
     def adb_watchdog():
         while True:
             time.sleep(10)
